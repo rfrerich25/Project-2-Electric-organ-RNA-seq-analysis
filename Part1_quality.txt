@@ -1,0 +1,12 @@
+SRR25630300_1.fastq and SRR25630300_2.fastq
+- high per base sequence quality
+- high per sequence quality score
+- per base sequence quality low at beginning due to primers but fine otherwise
+- good per sequence GC quality
+- low per base N content
+- good sequence length distributions
+- high sequence duplication levels, but because from RNA data
+- Good adapter content
+
+SRR25630378_1.fastq and SRR25630378_2.fastq
+- same as above except for adapter content, but just trying to predict adapters used

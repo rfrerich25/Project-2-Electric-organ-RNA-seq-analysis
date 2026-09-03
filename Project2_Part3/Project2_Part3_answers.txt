@@ -1,0 +1,43 @@
+1. Using your script from PS8 in Bi621, report the number of 
+   mapped and unmapped reads:
+campy_378_Aligned.out.sam
+    mapped: 80476081
+    unmapped: 4410785
+campy_300_Aligned.out.sam
+    mapped: 8891475
+    unmapped: 519939
+
+2.  Demonstrate convincingly whether or not the data are from 
+    "strand-specific" RNA-Seq libraries **and** which `stranded=` 
+    parameter should you use for counting your reads for a future 
+    differential gene expression analyses. Include any 
+    commands/scripts used. Briefly describe your evidence, using 
+    quantitative statements (e.g. "I propose that these data 
+    are/are not strand-specific, because X% of the reads are y, 
+    as opposed to z."). This [kit](https://www.revvity.com/product/nex-rapid-dir-rna-seq-kit-2-0-8rxn-nova-5198-01) 
+    was used during library preparation. This [paper](https://academic.oup.com/bfg/article/19/5-6/339/5837822) 
+    may provide helpful information.
+    [Describe whether your reads are "strand-specific", why you 
+    think they are, any evidence, and which stranded parameter is 
+    appropriate and why]
+reads mapped: grep -v "^__" <file> | awk '{sum+=$2} END {print sum}'
+total: awk '{sum+=$2} END {print sum}' <file>
+campy_300_count_rev.txt
+    Number mapped: 25382666
+    Total: 42443433
+    Percent: 59.8%
+campy_300_count_stranded.txt
+    Number mapped: 1405677
+    Total: 42443433
+    Percent: 3.3%
+campy_378_count_rev.txt
+    Number mapped: 2535438
+    Total: 4705707
+    Percent: 53.9%
+campy_378_count_stranded.txt
+    Number mapped: 144195
+    Total: 4705707
+    Percent: 3.1%
+I propose that these data are strand specific because 59.8% and 
+53.9% of the reads map to reverse stranded while only 3.3% and 
+3.1% mapped to the forward stranded.

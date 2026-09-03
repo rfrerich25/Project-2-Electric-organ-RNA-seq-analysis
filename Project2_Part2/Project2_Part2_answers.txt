@@ -1,0 +1,32 @@
+1.  What proportion of reads (both R1 and R2) were trimmed?
+SRR25630300_1: 5%
+SRR25630300_2: 5.7%
+SRR25630378_1: 10.8%
+SRR25630378_2: 11.4%
+
+2. search for the adapter sequences in your datasets and 
+   confirm the expected sequence orientations. Report the 
+   commands you used, the reasoning behind them, and how 
+   you confirmed the adapter sequences.
+zcat SRR_2.fastq.gz | grep "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT$" | head
+zcat SRR_1.fastq.gz | grep "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA$" | head
+
+Both commands gave results for files. Looking for them at the
+end of the file confirms they are adapters as they would be on
+the 3' end.
+
+3. Comment on whether you expect R1s and R2s to be 
+   adapter-trimmed at different rates and why.
+R1s and R2s should have similar adapter trimming rates as
+their fastqc files showed similar amounts of adapter contamination.
+However, my second file will likely have higher rates than
+my first, as seen in the fastqc analysis.
+
+4. Bonus - Run `FastQC` on your trimmed data. Comment on 
+    differences you observe between the trimmed and 
+    untrimmed data. Include any figures needed to support 
+    your conclusions.
+My first files already didn't have higher adapter contamination
+so not much changed in the fastqc between trimmed and untrimmed.
+However, the second files did. They swapped having a warning
+for adapter contaimnation to having a warning for sequence length.

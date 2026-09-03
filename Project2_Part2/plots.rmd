@@ -1,0 +1,56 @@
+
+```{r}
+install.packages("ggplot2")
+library("ggplot2")
+
+install.packages("dplyr")
+library("dplyr")
+```
+
+
+```{r}
+data300_1 = read.table("/projects/bgmp/rfrerich/bioinfo/Bi623/Projects/Project_2/Project2_QAA/filtered/SRR25630300_1_filtered_PE_readlength.tsv", sep= " ", col.names=c("Frequency", "Length"))
+data300_2 = read.table("/projects/bgmp/rfrerich/bioinfo/Bi623/Projects/Project_2/Project2_QAA/filtered/SRR25630300_2_filtered_PE_readlength.tsv", sep= " ", col.names=c("Frequency", "Length"))
+data378_1 = read.table("/projects/bgmp/rfrerich/bioinfo/Bi623/Projects/Project_2/Project2_QAA/filtered/SRR25630378_1_filtered_PE_readlength.tsv", sep= " ", col.names=c("Frequency", "Length"))
+data378_2 = read.table("/projects/bgmp/rfrerich/bioinfo/Bi623/Projects/Project_2/Project2_QAA/filtered/SRR25630378_2_filtered_PE_readlength.tsv", sep= " ", col.names=c("Frequency", "Length"))
+```
+
+
+```{r}
+data300_combo = bind_rows("R1" = data300_1, "R2" = data300_2, .id = "Read")
+data378_combo = bind_rows("R1" = data378_1, "R2" = data378_2, .id = "Read")
+```
+
+```{r}
+#ggplot() + 
+#  geom_point(data=data300_1, aes(x=Length, y=log(Frequency)), color = "pink") +
+#  geom_point(data=data300_2, aes(x=Length, y=log(Frequency)), color = "blue") +
+#  theme_bw() + 
+#  theme(legend.position = "none") +
+#  labs(title = "Read Length Distribution SRR25630300")
+
+ggplot(data300_combo, aes(x=Length, y=log10(Frequency), color=Read)) + 
+  geom_point(alpha= 0.5) +
+  theme_bw() + 
+  labs(title = "Read Length Distribution SRR25630300")+
+  ylab("Log10 of Frequency") +
+  xlab("Read Length") +
+  scale_color_manual(values=c("magenta", "blue"))
+ggsave("SRR25630300_distribution.png", width=8, height=5)
+```
+```{r}
+#ggplot() + 
+#  geom_point(data=data378_1, aes(x=Length, y=log(Frequency), color = "blue")) +
+#  geom_point(data=data378_2, aes(x=Length, y=log(Frequency), color = "pink")) +
+#  theme_bw() + 
+#  labs(title = "Read Length Distribution SRR25630378") +
+#  scale_fill_hue(labels=c("data378_1", "data378_2"))
+ggplot(data378_combo, aes(x=Length, y=log10(Frequency), color=Read)) + 
+  geom_point(alpha= 0.5) +
+  theme_bw() + 
+  labs(title = "Read Length Distribution SRR25630378") +
+  ylab("Log10 of Frequency")+
+  xlab("Read Length") +
+  scale_color_manual(values=c("magenta", "blue"))
+ggsave("SRR25630378_distribution.png", width=8, height=5)
+```

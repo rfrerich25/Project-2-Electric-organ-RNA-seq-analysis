@@ -1,0 +1,235 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+pt 0 - In part 4, your goal is to investigate differences in gene
+expression between the electric organ and skeletal muscle. Write the
+null hypothesis for this goal below.
+
+H0 = Gene expression in the electric organ and skeletal muscle are the same.
+
+
+```{r}
+library(edgeR)
+library(limma)
+library(Glimma)
+library(ggplot2)
+library(RColorBrewer)
+library(DESeq2)
+library(dplyr)
+library(pheatmap)
+library(clusterProfiler)
+library(KEGGREST)
+library(enrichplot)
+library(apeglm)
+library(tidyverse)
+library("PoiClaClu")
+library("glmpca")
+library(ashr)
+```
+
+pt 1 - Load in metadata and counts
+I decided to look at Species and Tissue since species is directly related to electric organ discharge, and tissue will allow us to study differences in EO and SM. Adding in the interaction term between Tissue and Species allows for further analysis of how they are interacting.
+```{r}
+metadata = read.csv("metadata/Project2_RNAseq_metadata_campy.csv") %>%
+  filter(AgeSize=="adult") %>%
+  filter(Sample!="com15")
+
+Campy = DESeqDataSetFromHTSeqCount(metadata,directory="counts_tar",design=~Species+Tissue+Species:Tissue)
+```
+
+pt 2 - filter reads
+I filtered reads by counts per million in order to filter reads that are lowly expressed. CPM takes sequencing depth into account and is therefore more accurate than just counts.
+```{r}
+CPM = cpm(Campy)
+campy_thresh = CPM > 0.5
+retain = rowSums(campy_thresh) >= 2
+Campy = Campy[retain,]
+```
+
+pt 3 - DEseq
+```{r}
+Campy = DESeq(Campy)
+Campy_results = results(Campy)
+
+resultsNames(Campy)
+Campy_results = lfcShrink(Campy, coef="Tissue_SM_vs_EO", type="apeglm")
+## The difference in expression was quantified for each gene
+### adjusted p-value is important here because we completed many statistical tests and need to adjust due to multiple testing
+Campy_results[1:4,]
+```
+
+pt 4 - Perform rlog transformation
+rlog transforms the data to log2 form with respect to library size by minimizing differences between samples with low counts.
+```{r}
+rCampy<-rlog(Campy)
+```
+
+pt 5 - Heatmap
+First Heatmap -- on rlog data to ensure equal contribution. Compares how similar samples are to each other. There was an outlier of SM within the EO section but it was removed in pt 7.
+Second Heatmap -- Poisson, acts on the raw data. Does the same as the above heatmap.
+Both heatmaps show the same patterns, just with different numbers.
+```{r, fig.height=8}
+sampleDists = dist(t(assay(rCampy)))
+sampleDistMatrix = as.matrix( sampleDists )
+rownames(sampleDistMatrix) = rCampy$Tissue
+colors = colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+```
+Poisson distance heatmap (takes unnormalized)
+```{r, fig.height=8}
+poisCampy <- PoissonDistance(t(counts(Campy)))
+samplePoisDistMatrix <- as.matrix(poisCampy$dd )
+rownames(sampleDistMatrix) = rCampy$Tissue
+pheatmap(samplePoisDistMatrix,
+         clustering_distance_rows = poisCampy$dd,
+         clustering_distance_cols = poisCampy$dd,
+         col = colors)
+```
+pt 6 - Examine similarity with PCA, gen PCA, MDS
+All plots clearly show separation based primarily on tissue, with a secondary grouping based on species (related to EO discharge duration) within the EO cluster. Similarly to the heatmaps, the first PCA plot works on normalized data while the generalized one works on raw data. All plots showed an outlier, which was removed in part 7. MDS is less focused on capturing variance and instead focuses on preserving pairwise distances.
+```{r}
+pcaData <- plotPCA(rCampy, intgroup=c("Tissue", "Species"), returnData=TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+ggplot(pcaData, aes(PC1, PC2, color=Tissue, shape=SpeciesSmaller)) +
+  geom_point(size=3) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  coord_fixed()
+```
+Generalized PCA
+```{r}
+gpca <- glmpca(counts(Campy), L=2)
+gpca.dat <- gpca$factors
+ggplot(gpca.dat, aes(x = dim1, y = dim2, color = Campy$Tissue, shape = Campy$SpeciesSmaller)) +
+  geom_point(size =3) + coord_fixed()
+```
+MDS plot
+```{r}
+mds <- as.data.frame(colData(rCampy))  %>%
+         cbind(cmdscale(sampleDistMatrix))
+ggplot(mds, aes(x = `1`, y = `2`, color = Tissue, shape = SpeciesSmaller)) +
+  geom_point(size = 3) + coord_fixed()
+```
+Pt 7 - Filter outliers
+There was an outlier found in both the heatmaps and the PCA/MDS plots. One of the SM data points clustered with the EO.
+
+Pt 8 - results table
+```{r}
+resultsNames(Campy)
+
+
+cco = data.frame(lfcShrink(Campy, coef="Tissue_SM_vs_EO", type="ashr")) %>%
+  rownames_to_column(var = "gene") %>%
+  select(gene,log2FoldChange,padj) %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05) %>%
+  rename("ccolog" = "log2FoldChange") %>%
+  rename("ccopadj" = "padj")
+
+ccoxcrh = data.frame(lfcShrink(Campy, contrast=list(c("Tissue_SM_vs_EO", "SpeciesCampylomormyruscompressirostrisxCampylomormyrusrhynchophorus.TissueSM")), type="ashr"))%>%
+  rownames_to_column(var = "gene") %>%
+  select(gene,log2FoldChange,padj) %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05) %>%
+  rename("ccoxcrhlog" = "log2FoldChange") %>%
+  rename("ccoxcrhpadj" = "padj")
+
+ccoxcts = data.frame(lfcShrink(Campy, contrast=list(c("Tissue_SM_vs_EO", "SpeciesCampylomormyruscompressirostrisxCampylomormyrustshokwe.TissueSM")), type="ashr"))%>%
+  rownames_to_column(var = "gene") %>%
+  select(gene,log2FoldChange,padj) %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05) %>%
+  rename("ccoxctslog" = "log2FoldChange") %>%
+  rename("ccoxctspadj" = "padj")
+
+crh = data.frame(lfcShrink(Campy, contrast=list(c("Tissue_SM_vs_EO", "SpeciesCampylomormyrusrhynchophorus.TissueSM")), type="ashr"))%>%
+  rownames_to_column(var = "gene") %>%
+  select(gene,log2FoldChange,padj) %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05) %>%
+  rename("crhlog" = "log2FoldChange") %>%
+  rename("crhpadj" = "padj")
+
+cts = data.frame(lfcShrink(Campy, contrast=list(c("Tissue_SM_vs_EO", "SpeciesCampylomormyrustshokwe.TissueSM")), type="ashr"))%>%
+  rownames_to_column(var = "gene") %>%
+  select(gene,log2FoldChange,padj) %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05) %>%
+  rename("ctslog" = "log2FoldChange") %>%
+  rename("ctspadj" = "padj")
+
+#turn row names into a column = rownames_to_column
+#filter where p value is below .05 and logfold change >1
+#rename log and p and select for columns u want
+#repeat with the other species one and join the data together -- innerjoin()
+Campy_DEG = inner_join(cco, ccoxcrh, by="gene") %>%
+  inner_join(ccoxcts, by="gene") %>%
+  inner_join(crh, by="gene") %>%
+  inner_join(cts, by="gene")
+
+#group_by and summarize
+mean_logs = Campy_DEG %>%
+  select(contains("log")) %>%
+  rowMeans()
+mean_padj = Campy_DEG %>%
+  select(contains("padj")) %>%
+  rowMeans()
+
+Campy_DEG = Campy_DEG %>%
+  mutate("mean_logs" = mean_logs) %>%
+  mutate("mean_padj" = mean_padj)
+
+#volcano, multiply all values by -1
+```
+
+Volcano plot
+```{r}
+# Compute significance, with a maximum of 320 for the p-values set to 0 due to limitation of computation precision
+Campy_DEG$sig <- -log10(Campy_DEG$mean_padj)
+# View(resultDESeq2[is.na(resultDESeq2$pvalue),])
+
+# Select genes with a defined p-value (DESeq2 assigns NA to some genes)
+genes.to.plot <- !is.na(Campy_DEG$mean_padj)
+# sum(genes.to.plot)
+range(Campy_DEG[genes.to.plot, "log2FoldChange"])
+
+## Volcano plot of adjusted p-values
+cols <- densCols(-Campy_DEG$mean_logs, Campy_DEG$sig)
+cols[-Campy_DEG$mean_padj ==0] <- "purple"
+Campy_DEG$pch <- 19
+Campy_DEG$pch[-Campy_DEG$mean_padj ==0] <- 6
+plot(-Campy_DEG$mean_logs, 
+     Campy_DEG$sig, 
+     col=cols, panel.first=grid(),
+     main="Volcano plot, right is up in EO, left is up in SM", 
+     xlab="Effect size: log2(fold-change)",
+     ylab="-log10(adjusted p-value)",
+     pch=Campy_DEG$pch, cex=0.4)
+abline(v=0)
+abline(v=c(-1,1), col="brown")
+abline(h=-log10(0.05), col="brown")
+
+#right = EO
+```
+Pt 9 - Visualize individual candidates
+```{r}
+#top 5 lowest padj
+top_5 = Campy_DEG %>%
+  arrange(mean_padj) %>%
+  head(n=5) %>%
+  select(gene)
+
+#gene with highest log2fc
+top_log = Campy_DEG %>%
+  arrange(-mean_logs) %>%
+  head(n=1)
+plotCounts(Campy, gene="snap_masked-ptg001143l-processed-gene-2.56-mRNA-1", intgroup="Tissue", normalized=FALSE, col=Campy$Tissue)
+
+
+
+#top EO (lowest log2fc)
+top_EO = Campy_DEG %>%
+  arrange(mean_logs) %>%
+  head(n=1)
+plotCounts(Campy, gene="maker-ptg000521l-snap-gene-0.25-mRNA-1", intgroup="Tissue", normalized=FALSE, col=Campy$Tissue)
+```

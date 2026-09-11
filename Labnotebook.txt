@@ -1,0 +1,167 @@
+Project 2
+Data:
+    -downloaded fastqc, cutadapt, trimmomatic, sra-tools using
+       pixi add
+        -fastqc = ">=0.12.1,<0.13"
+        -cutadapt = ">=5.2,<6"
+        -trimmomatic = ">=0.41,<0.42"
+        -sra-tools = ">=3.4.1,<4"
+    -used run_sra.sh to download SRR25630300 and SRR25630378
+        -using prefetch and fasterq-dump
+-----------------------------------------------------------------
+-----------
+| 8/27/26 |
+-----------
+
+-Downloading data and converting to fasterq-dump with run_sra.sh
+---output: Bi623/Projects/Project_2/Project2_QAA/slurm-46754086.out
+---forgot to change SRR numbers
+-re ran run_sra.sh
+---output: Bi623/Projects/Project_2/Project2_QAA/slurm-46754485.out
+
+- run fastqc on all files
+-- pixi run fastqc SRR* -o /projects/bgmp/rfrerich/bioinfo/Bi623/Projects/Project_2/Project2_QAA/
+-- output: SRR25630300_1_fastqc.html, SRR25630378_1_fastqc.html, SRR25630300_2_fastqc.html, SRR25630378_2_fastqc.html
+-- txt file with analysis: Part1_quality.txt
+
+----------
+| 9/2/26 |
+----------
+
+adapters:
+R1: `AGATCGGAAGAGCACACGTCTGAACTCCAGTCA`
+R2: `AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT`
+
+cutadapt: (run_cutadapt.sh)
+---https://cutadapt.readthedocs.io/en/stable/ 
+---output: Bi623/Projects/Project_2/Project2_QAA/slurms/slurm-47033349.out
+
+trimmomatic: (run_trimmomatic.sh)
+---https://purduercac-applications.readthedocs.io/en/latest/Biocontainers/trimmomatic/trimmomatic.html
+---output: Bi623/Projects/Project_2/Project2_QAA/slurms/slurm-47034396.out
+
+
+Plotting:
+-run_extractreadlengths.sh
+---output: Bi623/Projects/Project_2/Project2_QAA/filtered/slurm-47034490.out
+---column 1: frequency, column 2: read length
+
+-created plots.rmd
+---output: SRR25630300_distribution.png
+           SRR25630378_distribution.png
+
+-re ran fastqc (run_fastqc.sh)
+---output:Bi623/Projects/Project_2/Project2_QAA/filtered/slurm-47036079.out
+
+Part 3:
+-used pixi add to install: 
+    star = ">=2.7.11b,<3"
+    samtools = ">=1.23.1,<2"
+    numpy = ">=2.5.2,<3"
+    matplotlib = ">=3.11.1,<4"
+    htseq = ">=2.1.2,<3"
+
+----------
+| 9/3/26 |
+----------
+-copied campylomormyrus genome fasta and gff from:
+    /projects/bgmp/shared/Bi623/Project2
+-copied RunSTARdata.sh and RunSTARalign.sh from PS8
+-used pixi add to install:
+    agat >=1.7.0, <2
+-ran: convert_gff.sh (probably should specify memory)
+--converted campylomormyrus.gff to campylomormyrus.gtf
+---output: Bi623/Projects/Project_2/Project2_QAA/Project-2-Electric-organ-RNA-seq-analysis/Project2_Part3/slurm-47040841.out
+
+-ran RunSTARdata.sh to create genome database
+---output: Bi623/Projects/Project_2/Project2_QAA/Project-2-Electric-organ-RNA-seq-analysis/Project2_Part3/slurm-47042055.out
+
+-ran RunSTARalign_378.sh to align
+---output: Bi623/Projects/Project_2/Project2_QAA/Project-2-Electric-organ-RNA-seq-analysis/Project2_Part3/slurm-47042094.out
+-ran RunSTARalign_300.sh to align
+---output: Bi623/Projects/Project_2/Project2_QAA/Project-2-Electric-organ-RNA-seq-analysis/Project2_Part3/slurm-47042093.out
+
+-PS8 counting (parse.py)
+--edited to include argparse
+--ran on campy_378_Aligned.out.sam
+---mapped: 80476081
+---unmapped: 4410785
+--ran on campy_300_Aligned.out.sam
+---mapped: 8891475
+---unmapped: 519939
+
+-htseq: gff file, -i Parent
+--have to pipe output to an out (txt) file
+-ran run_htseq_300.sh to count reads that map
+---output: Bi623/Projects/Project_2/Project2_QAA/Project-2-Electric-organ-RNA-seq-analysis/Project2_Part3/slurm-47042561.out
+-ran run_htseq_378.sh
+---output: Bi623/Projects/Project_2/Project2_QAA/Project-2-Electric-organ-RNA-seq-analysis/Project2_Part3/slurm-47042563.out
+
+
+-Percent of reads mapped:
+reads mapped: grep -v "^__" <file> | awk '{sum+=$2} END {print sum}'
+total: awk '{sum+=$2} END {print sum}' <file>
+
+--campy_300_count_rev.txt
+    Number mapped: 25382666
+    Total: 42443433
+    Percent: 59.8%
+--campy_300_count_stranded.txt
+    Number mapped: 1405677
+    Total: 42443433
+    Percent: 3.3%
+--campy_378_count_rev.txt
+    Number mapped: 2535438
+    Total: 4705707
+    Percent: 53.9%
+--campy_378_count_stranded.txt
+    Number mapped: 144195
+    Total: 4705707
+    Percent: 3.1%
+
+
+Rename htseq files:
+campy_300: Crh_rhy53_EO_6cm_1_htseqcounts_[forORrev]stranded.txt
+campy_378: CcoxCrh_comrhy113_EO_adult_1_htseqcounts_[forORrev]stranded.txt
+
+----------
+| 9/9/26 |
+----------
+Part 4:
+Null hypothesis: H0 = electric organ gene expression is
+    identical to skeletal muscle gene expression
+-copied counts.tar from /projects/bgmp/shared/Bi623/Project2/
+-created Part4.rmd
+1. Load data in
+    -moved embryonic (6cm) out of counts_tar into a 
+     different folder so its not included
+2. Filter dataset to remove lowly expressed genes
+    -Used cpm to filter
+3. Normalize dataset and run DE analysis
+    -Used DESeq() command
+    -made a volcano plot
+4. Normalize data for dimensionality reduction
+    -Used rlog() transformation
+5. ID distances btwn samples with heatmaps
+    -Euclidean -- with rlog data
+    -Poisson -- with unnormalized data
+6. Examine sim with PCA, gen PCA, MDS
+    -PCA -- rlog data
+    -gen PCA -- unormalized data
+    -MDS -- rlog data
+7. Eval sample quality and do quality adjustments
+    -remove the outlier that is SM but clusters with the EO
+    -went back to beginning and filtered it out
+    -found it by coloring my PCA plot by sample
+8. ID genes differentially expressed btwn SM and EO in every species
+    -went back and added Species:Tissue to design formula
+    -created results table with lfcShrink
+    --cco is weird, used coef="Tissue_SM_vs_EO"
+    --all others used contrast="species.TissueSM"
+    --made rownames into a column, filtered log and padj
+    --renamed columns
+    --used innerjoin to join and rowMeans to calc means
+    --volcano plot, following instructions from:
+    https://dputhier.github.io/jgb71e-polytech-bioinfo-app/practical/rna-seq_R/rnaseq_diff_Snf2.html
+9. Visualize individual genes
+    -used arrange() and head() to grab out top candidates
